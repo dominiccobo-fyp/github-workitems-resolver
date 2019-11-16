@@ -30,7 +30,6 @@ hs_err_pid*
 
 # Ignore Gradle GUI config
 gradle-app.setting
-
 # Avoid ignoring Gradle wrapper jar file (.jar files are usually ignored)
 !gradle-wrapper.jar
 
@@ -42,3 +41,5 @@ gradle-app.setting
 
 .idea
 *.iml
+
+gradle.properties

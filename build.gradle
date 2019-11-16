@@ -2,6 +2,7 @@ plugins {
     id 'java'
     id 'idea'
     id 'org.springframework.boot' version '2.1.9.RELEASE'
+    id "com.palantir.git-version" version "0.12.2"
 }
 
 
@@ -14,6 +15,13 @@ targetCompatibility = 1.8
 repositories {
     mavenLocal()
     mavenCentral()
+    maven {
+        url 'https://pkgs.dev.azure.com/1422016/_packaging/1422016/maven/v1'
+        credentials {
+            username "AZURE_ARTIFACTS"
+            password System.getenv("AZURE_ARTIFACTS_ENV_ACCESS_TOKEN") ?: "${azureArtifactsGradleAccessToken}"
+        }
+    }
 }
 
 dependencies {
@@ -21,9 +29,11 @@ dependencies {
     implementation 'commons-io:commons-io:2.6'
     implementation 'org.eclipse.jgit:org.eclipse.jgit:5.5.0.201909110433-r'
     implementation 'org.springframework.boot:spring-boot-starter-websocket:2.1.8.RELEASE'
-    implementation 'com.dominiccobo.fyp:context-lsp-api:1.0.0-SNAPSHOT'
+    implementation 'com.dominiccobo.fyp:context-lsp-api:0.2.2'
     implementation 'org.axonframework:axon-spring-boot-starter:4.2'
+    implementation 'org.kohsuke:github-api:1.95'
 
+    testImplementation group: 'org.mockito', name: 'mockito-all', version: '1.10.19'
     testImplementation group: 'junit', name: 'junit', version: '4.12'
     testImplementation 'com.google.truth:truth:1.0'
 }
