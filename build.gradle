@@ -1,13 +1,15 @@
 plugins {
     id 'java'
     id 'idea'
+    id 'maven'
+    id 'maven-publish'
     id 'org.springframework.boot' version '2.1.9.RELEASE'
     id "com.palantir.git-version" version "0.12.2"
 }
 
 
 group 'com.dominiccobo.fyp'
-version '1.0.0-SNAPSHOT'
+version versionDetails().lastTag
 
 sourceCompatibility = 1.8
 targetCompatibility = 1.8
@@ -36,6 +38,23 @@ dependencies {
     testImplementation group: 'org.mockito', name: 'mockito-all', version: '1.10.19'
     testImplementation group: 'junit', name: 'junit', version: '4.12'
     testImplementation 'com.google.truth:truth:1.0'
+}
+
+publishing {
+    repositories {
+        maven {
+            url 'https://pkgs.dev.azure.com/1422016/_packaging/1422016/maven/v1'
+            credentials {
+                username "AZURE_ARTIFACTS"
+                password System.getenv("AZURE_ARTIFACTS_ENV_ACCESS_TOKEN") ?: "${azureArtifactsGradleAccessToken}"
+            }
+        }
+    }
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+        }
+    }
 }
 
 sourceSets {
