@@ -37,3 +37,9 @@ test:
 deploy:
   stage: deploy
   script: gradle publish
+  cache:
+    key: "$CI_COMMIT_REF_NAME"
+    policy: pull
+    paths:
+      - build
+      - .gradle
