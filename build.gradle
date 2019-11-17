@@ -7,10 +7,9 @@ plugins {
 }
 
 
-group 'com.dominiccobo.fyp'
-version versionDetails().lastTag
-
-sourceCompatibility = 1.8
+group = 'com.dominiccobo.fyp'
+version = versionDetails().lastTag
+sourceCompatibility = '1.8'
 targetCompatibility = 1.8
 
 repositories {
