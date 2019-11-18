@@ -9,6 +9,7 @@ import com.dominiccobo.fyp.context.models.git.GitRemoteIdentifier;
 import com.dominiccobo.fyp.context.models.git.GitRemoteURL;
 import com.dominiccobo.fyp.github.provider.GitHubAPI;
 import com.dominiccobo.fyp.github.provider.Issue;
+import com.dominiccobo.fyp.github.utils.GitRepoDetails;
 import org.axonframework.queryhandling.QueryHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

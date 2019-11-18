@@ -1,6 +1,6 @@
 package com.dominiccobo.fyp.github.provider;
 
-import com.dominiccobo.fyp.github.GitRepoDetails;
+import com.dominiccobo.fyp.github.utils.GitRepoDetails;
 import org.kohsuke.github.GHIssue;
 import org.kohsuke.github.GHIssueState;
 import org.kohsuke.github.GHRepository;

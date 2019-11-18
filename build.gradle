@@ -30,6 +30,7 @@ dependencies {
     implementation 'org.eclipse.jgit:org.eclipse.jgit:5.5.0.201909110433-r'
     implementation 'org.springframework.boot:spring-boot-starter-websocket:2.1.8.RELEASE'
     implementation 'com.dominiccobo.fyp:context-lsp-api:0.2.2'
+    implementation 'com.dominiccobo.fyp:github-processing-utils:0.1.0'
     implementation 'org.axonframework:axon-spring-boot-starter:4.2'
     implementation 'org.kohsuke:github-api:1.95'
 
