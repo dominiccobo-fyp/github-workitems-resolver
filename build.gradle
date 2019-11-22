@@ -2,10 +2,10 @@ plugins {
     id 'java'
     id 'maven'
     id 'maven-publish'
-    id 'org.springframework.boot' version '2.1.9.RELEASE'
+    id 'org.springframework.boot' version '2.2.0.RELEASE'
     id "com.palantir.git-version" version "0.12.2"
+    id 'com.palantir.docker' version '0.22.1'
 }
-
 
 group = 'com.dominiccobo.fyp'
 version = versionDetails().lastTag
@@ -58,4 +58,17 @@ publishing {
 
 tasks.withType(JavaCompile) {
     options.encoding = 'UTF-8'
+}
+
+task unpack(type: Copy) {
+    dependsOn bootJar
+    from(zipTree(tasks.bootJar.outputs.files.singleFile))
+    into("build/dependency")
+}
+
+docker {
+    name "registry.gitlab.com/dominiccobo-fyp/${bootJar.baseName}:latest"
+    files bootJar.archivePath
+    dependsOn tasks.build
+    buildArgs(['JAR_FILE': "${bootJar.archiveName}"])
 }
