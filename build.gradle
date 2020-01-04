@@ -7,7 +7,7 @@ plugins {
     id 'com.palantir.docker' version '0.22.1'
 }
 
-gradle.ext.publishRepo = 'https://maven.pkg.github.com/dominiccobo-fyp/github-experts-resolver'
+gradle.ext.publishRepo = 'https://maven.pkg.github.com/dominiccobo-fyp/github-workitems-resolver'
 apply from: 'https://raw.githubusercontent.com/dominiccobo-fyp/build-common/master/repositories.gradle'
 
 group = 'com.dominiccobo.fyp'
