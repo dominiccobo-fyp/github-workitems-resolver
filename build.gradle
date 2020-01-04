@@ -7,22 +7,13 @@ plugins {
     id 'com.palantir.docker' version '0.22.1'
 }
 
+gradle.ext.publishRepo = 'https://maven.pkg.github.com/dominiccobo-fyp/github-experts-resolver'
+apply from: 'https://raw.githubusercontent.com/dominiccobo-fyp/build-common/master/repositories.gradle'
+
 group = 'com.dominiccobo.fyp'
 version = versionDetails().lastTag
 sourceCompatibility = '1.8'
 targetCompatibility = 1.8
-
-repositories {
-    mavenLocal()
-    mavenCentral()
-    maven {
-        url 'https://pkgs.dev.azure.com/1422016/_packaging/1422016/maven/v1'
-        credentials {
-            username "AZURE_ARTIFACTS"
-            password System.getenv("AZURE_ARTIFACTS_ENV_ACCESS_TOKEN") ?: "${azureArtifactsGradleAccessToken}"
-        }
-    }
-}
 
 dependencies {
     implementation 'org.eclipse.jdt:org.eclipse.jdt.core:3.19.0'
@@ -39,22 +30,6 @@ dependencies {
     testImplementation 'com.google.truth:truth:1.0'
 }
 
-publishing {
-    repositories {
-        maven {
-            url 'https://pkgs.dev.azure.com/1422016/_packaging/1422016/maven/v1'
-            credentials {
-                username "AZURE_ARTIFACTS"
-                password System.getenv("AZURE_ARTIFACTS_ENV_ACCESS_TOKEN") ?: "${azureArtifactsGradleAccessToken}"
-            }
-        }
-    }
-    publications {
-        mavenJava(MavenPublication) {
-            from components.java
-        }
-    }
-}
 
 tasks.withType(JavaCompile) {
     options.encoding = 'UTF-8'
@@ -67,7 +42,7 @@ task unpack(type: Copy) {
 }
 
 docker {
-    name "registry.gitlab.com/dominiccobo-fyp/${bootJar.baseName}:latest"
+    name "docker.pkg.github.com/dominiccobo-fyp/github-workitems-resolver/${bootJar.baseName}:${version}"
     files bootJar.archivePath
     dependsOn tasks.build
     buildArgs(['JAR_FILE': "${bootJar.archiveName}"])
