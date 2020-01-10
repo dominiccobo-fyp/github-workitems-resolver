@@ -1,6 +1,7 @@
 package com.dominiccobo.fyp.github;
 
 import com.dominiccobo.fyp.context.api.queries.AssociatedWorkItemsQuery;
+import com.dominiccobo.fyp.context.models.Pagination;
 import com.dominiccobo.fyp.context.models.QueryContext;
 import com.dominiccobo.fyp.context.models.WorkItem;
 import com.dominiccobo.fyp.context.models.git.GitContext;
@@ -15,10 +16,8 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.mockito.runners.MockitoJUnitRunner;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Stream;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Matchers.any;
@@ -44,7 +43,7 @@ public class GitHubAPIWorkItemsRetrievalTest {
         remotes.put(new GitRemoteIdentifier("upstream"), new GitRemoteURL("git@gitlab.com:dominiccobo/cs3004-assignment.git"));
         GitContext gitContext = new GitContext(remotes, null);
         QueryContext queryContext = new QueryContext(gitContext, null);
-        AssociatedWorkItemsQuery qry = new AssociatedWorkItemsQuery(queryContext);
+        AssociatedWorkItemsQuery qry = new AssociatedWorkItemsQuery(queryContext, new Pagination(0, 100));
         List<WorkItem> result = fixture.on(qry);
         assertThat(result).isEmpty();
     }
@@ -54,14 +53,15 @@ public class GitHubAPIWorkItemsRetrievalTest {
         final String TITLE = "test";
         final String BODY = "test";
 
+        Stream<Issue> stream = Stream.of(new MockableIssue(TITLE, BODY));
         when(gitHubApi.getIssuesForRepository(any()))
-                .thenReturn(Collections.singletonList(new MockableIssue(TITLE, BODY)));
+                .thenReturn(stream);
 
         Map<GitRemoteIdentifier, GitRemoteURL> remotes = new HashMap<>();
         remotes.put(new GitRemoteIdentifier("upstream"), new GitRemoteURL("git@github.com:dominiccobo/cs3004-assignment.git"));
         GitContext gitContext = new GitContext(remotes, null);
         QueryContext queryContext = new QueryContext(gitContext, null);
-        AssociatedWorkItemsQuery qry = new AssociatedWorkItemsQuery(queryContext);
+        AssociatedWorkItemsQuery qry = new AssociatedWorkItemsQuery(queryContext, new Pagination(0, 100));
         List<WorkItem> result = fixture.on(qry);
 
         assertThat(result).contains(new WorkItem().setBody(TITLE).setTitle(BODY));

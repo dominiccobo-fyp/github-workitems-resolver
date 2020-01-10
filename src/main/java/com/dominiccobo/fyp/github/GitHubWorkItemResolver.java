@@ -1,5 +1,6 @@
 package com.dominiccobo.fyp.github;
 
+import com.dominiccobo.fyp.context.api.events.GitRemoteURLRecognisedEvent;
 import com.dominiccobo.fyp.context.api.queries.AssociatedWorkItemsQuery;
 import com.dominiccobo.fyp.context.listeners.WorkItemQueryListener;
 import com.dominiccobo.fyp.context.models.QueryContext;
@@ -10,6 +11,10 @@ import com.dominiccobo.fyp.context.models.git.GitRemoteURL;
 import com.dominiccobo.fyp.github.provider.GitHubAPI;
 import com.dominiccobo.fyp.github.provider.Issue;
 import com.dominiccobo.fyp.github.utils.GitRepoDetails;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
+import org.axonframework.eventhandling.EventHandler;
 import org.axonframework.queryhandling.QueryHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,43 +24,83 @@ import org.springframework.stereotype.Component;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Component
 public class GitHubWorkItemResolver implements WorkItemQueryListener {
 
     private static final Logger LOG = LoggerFactory.getLogger(GitHubWorkItemResolver.class);
     private final GitHubAPI gitHubAPI;
+    private final LoadingCache<GitRemoteURL, Stream<WorkItem>> workItemsCache;
 
     @Autowired
     public GitHubWorkItemResolver(GitHubAPI gitHubAPI) {
         this.gitHubAPI = gitHubAPI;
+        this.workItemsCache = newCacheInstance();
     }
 
-    @QueryHandler
+    private LoadingCache<GitRemoteURL, Stream<WorkItem>> newCacheInstance() {
+        return CacheBuilder.newBuilder()
+                .maximumSize(2000)
+                .expireAfterAccess(1, TimeUnit.HOURS)
+                .refreshAfterWrite(30, TimeUnit.MINUTES)
+                .build(getCacheLoader());
+    }
+
+    private CacheLoader<GitRemoteURL, Stream<WorkItem>> getCacheLoader() {
+        return new CacheLoader<GitRemoteURL, Stream<WorkItem>>() {
+            @Override
+            public Stream<WorkItem> load(GitRemoteURL key) {
+                return fetchWorkItemsForRemote(key);
+            }
+        };
+    }
+
+    @EventHandler
+    public void on(GitRemoteURLRecognisedEvent event) throws ExecutionException {
+        GitRepoDetails repoDetails = GitRepoDetails.from(event.getGitRemoteURL().getUrl());
+        if(repoDetails != null) {
+            this.workItemsCache.get(event.getGitRemoteURL());
+        }
+    }
+
+    // TODO: publish this to some form of subscription query ...
     @Override
+    @QueryHandler
     public List<WorkItem> on(AssociatedWorkItemsQuery query) {
         LOG.info("Received query for associated work items");
         QueryContext queryContext = query.getContext();
-        return fetchWorkItemsFromGitHub(queryContext);
-    }
-
-
-
-    private List<WorkItem> fetchWorkItemsFromGitHub(QueryContext qryCtx) {
-        if(qryCtx.getGitContext().isPresent()) {
-            List<Issue> ghIssues = this.fetchGitHubIssuesForGitContext(qryCtx.getGitContext().get());
-            return transformIssuesToWorkItems(ghIssues);
+        try {
+            return fetchWorkItemsFromGitHub(queryContext).collect(Collectors.toList());
+        } catch (ExecutionException e) {
+            LOG.error("", e);
         }
         return new ArrayList<>();
     }
 
+    /**
+     * cached, avoid direct calling
+     * @param key
+     * @return
+     */
+    private Stream<WorkItem> fetchWorkItemsForRemote(GitRemoteURL key) {
+        return fetchGitHubIssuesForRemote(key).map(this::transformIssueToWorkItem);
+    }
 
-    private List<WorkItem> transformIssuesToWorkItems(List<Issue> issues) {
-        List<WorkItem> formattedWorkItems = new ArrayList<>();
-        for (Issue issue : issues) {
-            formattedWorkItems.add(transformIssueToWorkItem(issue));
+
+
+    private Stream<WorkItem> fetchWorkItemsFromGitHub(QueryContext qryCtx) throws ExecutionException {
+        if(qryCtx.getGitContext().isPresent()) {
+            return fetchWorkItemsFromGitContext(qryCtx);
         }
-        return formattedWorkItems;
+        return Stream.of();
+    }
+
+    private Stream<WorkItem> fetchWorkItemsFromGitContext(QueryContext qryCtx) throws ExecutionException {
+        return this.fetchWorkItemsForAllRemotes(qryCtx.getGitContext().get());
     }
 
     private WorkItem transformIssueToWorkItem(Issue issue) {
@@ -65,29 +110,33 @@ public class GitHubWorkItemResolver implements WorkItemQueryListener {
         return workItemToAdd;
     }
 
-    private List<Issue> fetchGitHubIssuesForGitContext(GitContext ctx) {
-        List<Issue> retrievedIssues = new ArrayList<>();
+    private Stream<WorkItem> fetchWorkItemsForAllRemotes(GitContext ctx) {
         if (ctx.getRemotes().isPresent()) {
             Map<GitRemoteIdentifier, GitRemoteURL> remotes = ctx.getRemotes().get();
-            for (Map.Entry<GitRemoteIdentifier, GitRemoteURL> remote : remotes.entrySet()) {
-                retrievedIssues.addAll(fetchGitHubIssuesForRemote(remote));
-            }
+
+            return remotes.values().stream().flatMap(this::getRemoteFromCache);
         }
-        return retrievedIssues;
+        return Stream.empty();
     }
 
 
-    private List<Issue> fetchGitHubIssuesForRemote(Map.Entry<GitRemoteIdentifier, GitRemoteURL> remote) {
-        ArrayList<Issue> issuesForThisRemote = new ArrayList<>();
-        String remoteUrl = remote.getValue().getUrl();
+    private Stream<Issue> fetchGitHubIssuesForRemote(GitRemoteURL remote) {
+        String remoteUrl = remote.getUrl();
         GitRepoDetails gitRepoDetails = GitRepoDetails.from(remoteUrl);
         if (gitRepoDetails == null) {
-            return new ArrayList<>();
+            return Stream.empty();
         }
         LOG.info("Fetching any issues associated with {} ({}:{})", remoteUrl, gitRepoDetails.getRepositoryName(), gitRepoDetails.getUserOrOrganisation());
-        issuesForThisRemote.addAll(gitHubAPI.getIssuesForRepository(gitRepoDetails));
-        return issuesForThisRemote;
+        return gitHubAPI.getIssuesForRepository(gitRepoDetails);
     }
 
 
+    private Stream<? extends WorkItem> getRemoteFromCache(GitRemoteURL gitRemoteURL) {
+        try {
+            return workItemsCache.get(gitRemoteURL);
+        } catch (ExecutionException e) {
+            LOG.error("Error retrieving remote {} through cache. Returning empty stream. {}", gitRemoteURL.getUrl(), e);
+            return Stream.empty();
+        }
+    }
 }
