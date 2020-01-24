@@ -3,31 +3,21 @@ package com.dominiccobo.fyp.github;
 import com.dominiccobo.fyp.context.api.events.GitRemoteURLRecognisedEvent;
 import com.dominiccobo.fyp.context.api.queries.AssociatedWorkItemsQuery;
 import com.dominiccobo.fyp.context.listeners.WorkItemQueryListener;
-import com.dominiccobo.fyp.context.models.QueryContext;
-import com.dominiccobo.fyp.context.models.WorkItem;
-import com.dominiccobo.fyp.context.models.git.GitContext;
-import com.dominiccobo.fyp.context.models.git.GitRemoteIdentifier;
-import com.dominiccobo.fyp.context.models.git.GitRemoteURL;
+import com.dominiccobo.fyp.context.models.*;
+import com.dominiccobo.fyp.context.models.git.*;
 import com.dominiccobo.fyp.github.provider.GitHubAPI;
 import com.dominiccobo.fyp.github.provider.Issue;
 import com.dominiccobo.fyp.github.utils.GitRepoDetails;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
+import com.google.common.cache.*;
 import org.axonframework.eventhandling.EventHandler;
 import org.axonframework.queryhandling.QueryHandler;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.slf4j.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.stream.*;
 
 @Component
 public class GitHubWorkItemResolver implements WorkItemQueryListener {
@@ -67,18 +57,17 @@ public class GitHubWorkItemResolver implements WorkItemQueryListener {
         }
     }
 
-    // TODO: publish this to some form of subscription query ...
     @Override
     @QueryHandler
     public List<WorkItem> on(AssociatedWorkItemsQuery query) {
         LOG.info("Received query for associated work items");
         QueryContext queryContext = query.getContext();
-        try {
-            return fetchWorkItemsFromGitHub(queryContext).collect(Collectors.toList());
-        } catch (ExecutionException e) {
-            LOG.error("", e);
-        }
-        return new ArrayList<>();
+        Pagination pagination = query.getPagination();
+
+        return fetchWorkItemsFromGitHub(queryContext)
+                .limit(pagination.itemsPerPage)
+                .skip(pagination.page * pagination.itemsPerPage)
+                .collect(Collectors.toList());
     }
 
     /**
@@ -92,14 +81,14 @@ public class GitHubWorkItemResolver implements WorkItemQueryListener {
 
 
 
-    private Stream<WorkItem> fetchWorkItemsFromGitHub(QueryContext qryCtx) throws ExecutionException {
+    private Stream<WorkItem> fetchWorkItemsFromGitHub(QueryContext qryCtx) {
         if(qryCtx.getGitContext().isPresent()) {
             return fetchWorkItemsFromGitContext(qryCtx);
         }
         return Stream.of();
     }
 
-    private Stream<WorkItem> fetchWorkItemsFromGitContext(QueryContext qryCtx) throws ExecutionException {
+    private Stream<WorkItem> fetchWorkItemsFromGitContext(QueryContext qryCtx) {
         return this.fetchWorkItemsForAllRemotes(qryCtx.getGitContext().get());
     }
 
