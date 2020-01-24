@@ -1,6 +1,7 @@
 package com.dominiccobo.fyp.github.provider;
 
 import com.dominiccobo.fyp.github.utils.GitRepoDetails;
+import com.google.common.collect.Streams;
 import org.kohsuke.github.GHIssue;
 import org.kohsuke.github.GHIssueState;
 import org.kohsuke.github.GHRepository;
@@ -11,9 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Component
 class GitHubAPILibraryProvider implements GitHubAPI {
@@ -28,12 +27,9 @@ class GitHubAPILibraryProvider implements GitHubAPI {
     }
 
     @Override
-    public List<Issue> getIssuesForRepository(GitRepoDetails remoteRepoDetails) {
-        ArrayList<GHIssue> ghIssues = fetchIssuesForRemoteRepository(remoteRepoDetails);
-        return ghIssues
-                .stream()
-                .map(GitHubIssue::new)
-                .collect(Collectors.toList());
+    public Stream<Issue> getIssuesForRepository(GitRepoDetails remoteRepoDetails) {
+        return fetchIssuesForRemoteRepository(remoteRepoDetails)
+            .map(GitHubIssue::new);
     }
 
     private static class GitHubIssue implements Issue{
@@ -55,27 +51,19 @@ class GitHubAPILibraryProvider implements GitHubAPI {
         }
     }
 
-    private ArrayList<GHIssue> fetchIssuesForRemoteRepository(GitRepoDetails gitRepoDetails) {
-        ArrayList<GHIssue> issuesForThisRemote = new ArrayList<>();
+    private Stream<GHIssue> fetchIssuesForRemoteRepository(GitRepoDetails gitRepoDetails) {
         GHRepository repo = getGitHubRepository(gitRepoDetails);
         if (repo != null) {
-            issuesForThisRemote.addAll(getGitHubIssuesForRepo(repo));
+            return getGitHubIssuesForRepo(repo);
         }
         else {
             LOG.error("Could not return issues for null repository.");
         }
-        return issuesForThisRemote;
+        return Stream.empty();
     }
 
-    private List<GHIssue> getGitHubIssuesForRepo(GHRepository repo)  {
-        List<GHIssue> issues = new ArrayList<>();
-        try {
-            List<GHIssue> fetchedIssues = repo.getIssues(GHIssueState.ALL);
-            issues.addAll(fetchedIssues);
-        } catch (IOException e) {
-            LOG.error("Could not fetch issues from repository.", e);
-        }
-        return issues;
+    private Stream<GHIssue> getGitHubIssuesForRepo(GHRepository repo)  {
+        return Streams.stream(repo.listIssues(GHIssueState.ALL).iterator());
     }
 
     private GHRepository getGitHubRepository(GitRepoDetails gitRepoDetails) {
