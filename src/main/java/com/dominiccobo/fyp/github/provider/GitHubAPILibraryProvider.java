@@ -18,6 +18,7 @@ import java.util.stream.Stream;
 class GitHubAPILibraryProvider implements GitHubAPI {
 
     private static final Logger LOG = LoggerFactory.getLogger(GitHubAPILibraryProvider.class);
+    public static final int DEFAULT_PAGE_SIZE = 50;
 
     private final GitHub gitHubApi;
 
@@ -63,7 +64,7 @@ class GitHubAPILibraryProvider implements GitHubAPI {
     }
 
     private Stream<GHIssue> getGitHubIssuesForRepo(GHRepository repo)  {
-        return Streams.stream(repo.listIssues(GHIssueState.ALL).iterator());
+        return Streams.stream(repo.listIssues(GHIssueState.ALL).withPageSize(DEFAULT_PAGE_SIZE).iterator());
     }
 
     private GHRepository getGitHubRepository(GitRepoDetails gitRepoDetails) {
