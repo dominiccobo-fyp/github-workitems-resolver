@@ -54,7 +54,7 @@ public class GitHubAPIWorkItemsRetrievalTest {
         final String BODY = "test";
 
         Stream<Issue> stream = Stream.of(new MockableIssue(TITLE, BODY));
-        when(gitHubApi.getIssuesForRepository(any()))
+        when(gitHubApi.getIssuesForRepository(any(), any()))
                 .thenReturn(stream);
 
         Map<GitRemoteIdentifier, GitRemoteURL> remotes = new HashMap<>();

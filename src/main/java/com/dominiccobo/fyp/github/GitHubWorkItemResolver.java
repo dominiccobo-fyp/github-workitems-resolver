@@ -51,32 +51,31 @@ public class GitHubWorkItemResolver implements WorkItemQueryListener {
         QueryContext queryContext = query.getContext();
         Pagination pagination = query.getPagination();
 
-        return fetchWorkItemsFromGitHub(queryContext)
-                .limit(pagination.itemsPerPage)
-                .skip(pagination.page * pagination.itemsPerPage)
+        return fetchWorkItemsFromGitHub(queryContext, pagination)
                 .collect(Collectors.toList());
     }
 
     /**
      * cached, avoid direct calling
      * @param key
+     * @param pagination
      * @return
      */
-    private Stream<WorkItem> fetchWorkItemsForRemote(GitRemoteURL key) {
-        return fetchGitHubIssuesForRemote(key).map(this::transformIssueToWorkItem);
+    private Stream<WorkItem> fetchWorkItemsForRemote(GitRemoteURL key, Pagination pagination) {
+        return fetchGitHubIssuesForRemote(key, pagination).map(this::transformIssueToWorkItem);
     }
 
 
 
-    private Stream<WorkItem> fetchWorkItemsFromGitHub(QueryContext qryCtx) {
+    private Stream<WorkItem> fetchWorkItemsFromGitHub(QueryContext qryCtx, Pagination pagination) {
         if(qryCtx.getGitContext().isPresent()) {
-            return fetchWorkItemsFromGitContext(qryCtx);
+            return fetchWorkItemsFromGitContext(qryCtx, pagination);
         }
         return Stream.of();
     }
 
-    private Stream<WorkItem> fetchWorkItemsFromGitContext(QueryContext qryCtx) {
-        return this.fetchWorkItemsForAllRemotes(qryCtx.getGitContext().get());
+    private Stream<WorkItem> fetchWorkItemsFromGitContext(QueryContext qryCtx, Pagination pagination) {
+        return this.fetchWorkItemsForAllRemotes(qryCtx.getGitContext().get(), pagination);
     }
 
     private WorkItem transformIssueToWorkItem(Issue issue) {
@@ -86,28 +85,28 @@ public class GitHubWorkItemResolver implements WorkItemQueryListener {
         return workItemToAdd;
     }
 
-    private Stream<WorkItem> fetchWorkItemsForAllRemotes(GitContext ctx) {
+    private Stream<WorkItem> fetchWorkItemsForAllRemotes(GitContext ctx, Pagination pagination) {
         if (ctx.getRemotes().isPresent()) {
             Map<GitRemoteIdentifier, GitRemoteURL> remotes = ctx.getRemotes().get();
 
-            return remotes.values().stream().flatMap(this::getRemoteFromCache);
+            return remotes.values().stream().flatMap(gitRemoteURL -> getRemoteFromCache(gitRemoteURL, pagination));
         }
         return Stream.empty();
     }
 
 
-    private Stream<Issue> fetchGitHubIssuesForRemote(GitRemoteURL remote) {
+    private Stream<Issue> fetchGitHubIssuesForRemote(GitRemoteURL remote, Pagination pagination) {
         String remoteUrl = remote.getUrl();
         GitRepoDetails gitRepoDetails = GitRepoDetails.from(remoteUrl);
         if (gitRepoDetails == null) {
             return Stream.empty();
         }
         LOG.info("Fetching any issues associated with {} ({}:{})", remoteUrl, gitRepoDetails.getRepositoryName(), gitRepoDetails.getUserOrOrganisation());
-        return gitHubAPI.getIssuesForRepository(gitRepoDetails);
+        return gitHubAPI.getIssuesForRepository(gitRepoDetails, pagination);
     }
 
 
-    private Stream<? extends WorkItem> getRemoteFromCache(GitRemoteURL gitRemoteURL) {
-        return this.fetchWorkItemsForRemote(gitRemoteURL);
+    private Stream<? extends WorkItem> getRemoteFromCache(GitRemoteURL gitRemoteURL, Pagination pagination) {
+        return this.fetchWorkItemsForRemote(gitRemoteURL, pagination);
     }
 }
