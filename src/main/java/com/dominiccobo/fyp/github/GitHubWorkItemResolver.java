@@ -3,57 +3,44 @@ package com.dominiccobo.fyp.github;
 import com.dominiccobo.fyp.context.api.events.GitRemoteURLRecognisedEvent;
 import com.dominiccobo.fyp.context.api.queries.AssociatedWorkItemsQuery;
 import com.dominiccobo.fyp.context.listeners.WorkItemQueryListener;
-import com.dominiccobo.fyp.context.models.*;
-import com.dominiccobo.fyp.context.models.git.*;
+import com.dominiccobo.fyp.context.models.Pagination;
+import com.dominiccobo.fyp.context.models.QueryContext;
+import com.dominiccobo.fyp.context.models.WorkItem;
+import com.dominiccobo.fyp.context.models.git.GitContext;
+import com.dominiccobo.fyp.context.models.git.GitRemoteIdentifier;
+import com.dominiccobo.fyp.context.models.git.GitRemoteURL;
 import com.dominiccobo.fyp.github.provider.GitHubAPI;
 import com.dominiccobo.fyp.github.provider.Issue;
 import com.dominiccobo.fyp.github.utils.GitRepoDetails;
-import com.google.common.cache.*;
 import org.axonframework.eventhandling.EventHandler;
 import org.axonframework.queryhandling.QueryHandler;
-import org.slf4j.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.stream.*;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Component
 public class GitHubWorkItemResolver implements WorkItemQueryListener {
 
     private static final Logger LOG = LoggerFactory.getLogger(GitHubWorkItemResolver.class);
     private final GitHubAPI gitHubAPI;
-    private final LoadingCache<GitRemoteURL, Stream<WorkItem>> workItemsCache;
 
     @Autowired
     public GitHubWorkItemResolver(GitHubAPI gitHubAPI) {
         this.gitHubAPI = gitHubAPI;
-        this.workItemsCache = newCacheInstance();
-    }
-
-    private LoadingCache<GitRemoteURL, Stream<WorkItem>> newCacheInstance() {
-        return CacheBuilder.newBuilder()
-                .maximumSize(2000)
-                .expireAfterAccess(1, TimeUnit.HOURS)
-                .refreshAfterWrite(30, TimeUnit.MINUTES)
-                .build(getCacheLoader());
-    }
-
-    private CacheLoader<GitRemoteURL, Stream<WorkItem>> getCacheLoader() {
-        return new CacheLoader<GitRemoteURL, Stream<WorkItem>>() {
-            @Override
-            public Stream<WorkItem> load(GitRemoteURL key) {
-                return fetchWorkItemsForRemote(key);
-            }
-        };
     }
 
     @EventHandler
     public void on(GitRemoteURLRecognisedEvent event) throws ExecutionException {
         GitRepoDetails repoDetails = GitRepoDetails.from(event.getGitRemoteURL().getUrl());
         if(repoDetails != null) {
-            this.workItemsCache.get(event.getGitRemoteURL());
+            LOG.info("No caching implemented. We have received {}... ", event.getGitRemoteURL().getUrl());
         }
     }
 
@@ -121,11 +108,6 @@ public class GitHubWorkItemResolver implements WorkItemQueryListener {
 
 
     private Stream<? extends WorkItem> getRemoteFromCache(GitRemoteURL gitRemoteURL) {
-        try {
-            return workItemsCache.get(gitRemoteURL);
-        } catch (ExecutionException e) {
-            LOG.error("Error retrieving remote {} through cache. Returning empty stream. {}", gitRemoteURL.getUrl(), e);
-            return Stream.empty();
-        }
+        return this.fetchWorkItemsForRemote(gitRemoteURL);
     }
 }

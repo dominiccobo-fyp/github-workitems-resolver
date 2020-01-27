@@ -9,6 +9,7 @@ import org.kohsuke.github.GitHub;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -18,13 +19,14 @@ import java.util.stream.Stream;
 class GitHubAPILibraryProvider implements GitHubAPI {
 
     private static final Logger LOG = LoggerFactory.getLogger(GitHubAPILibraryProvider.class);
-    public static final int DEFAULT_PAGE_SIZE = 50;
 
     private final GitHub gitHubApi;
+    private final int pageSize;
 
     @Autowired
-    public GitHubAPILibraryProvider(GitHub gitHubApi) {
+    public GitHubAPILibraryProvider(GitHub gitHubApi, @Value("${defaultAPIPageSize: 10}") int pageSize) {
         this.gitHubApi = gitHubApi;
+        this.pageSize = pageSize;
     }
 
     @Override
@@ -64,7 +66,7 @@ class GitHubAPILibraryProvider implements GitHubAPI {
     }
 
     private Stream<GHIssue> getGitHubIssuesForRepo(GHRepository repo)  {
-        return Streams.stream(repo.listIssues(GHIssueState.ALL).withPageSize(DEFAULT_PAGE_SIZE).iterator());
+        return Streams.stream(repo.listIssues(GHIssueState.ALL).withPageSize(this.pageSize).iterator());
     }
 
     private GHRepository getGitHubRepository(GitRepoDetails gitRepoDetails) {
