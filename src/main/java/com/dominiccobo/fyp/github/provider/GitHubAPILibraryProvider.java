@@ -9,14 +9,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Stream;
 
 @Component
 class GitHubAPILibraryProvider implements GitHubAPI {
+
+    HashMap<String, ArrayList<GitIssue>> notReallyACacheButYeh = new HashMap<>();
 
     private static final Logger LOG = LoggerFactory.getLogger(GitHubAPILibraryProvider.class);
 
@@ -99,11 +98,32 @@ class GitHubAPILibraryProvider implements GitHubAPI {
     }
 
     private List<GitIssue> fetchIssuesForRemoteRepository(GitRepoDetails gitRepoDetails, Pagination pagination) {
-        String url = String.format("/repos/%s/%s/issues", gitRepoDetails.getUserOrOrganisation(), gitRepoDetails.getRepositoryName());
-        ResponseEntity<GitIssue[]> forEntity = this.restTemplate.getForEntity(url, GitIssue[].class);
+        String url = "/repos/{owner}/{repo}/issues?page={page}&per_page={size}";
         Map<String, String> uriVars = new HashMap<>();
         uriVars.put("page", String.valueOf(pagination.page));
         uriVars.put("size", String.valueOf(pagination.itemsPerPage));
-        return Arrays.asList(forEntity.getBody());
+        uriVars.put("owner", gitRepoDetails.getUserOrOrganisation());
+        uriVars.put("repo", gitRepoDetails.getRepositoryName());
+        ResponseEntity<GitIssue[]> forEntity = this.restTemplate.getForEntity(url, GitIssue[].class, uriVars);
+
+        List<GitIssue> gitIssues = Arrays.asList(forEntity.getBody());
+        addToCache(gitRepoDetails, gitIssues);
+
+        if(forEntity.getStatusCode().is3xxRedirection()) {
+            LOG.info("Fetching from short term cache");
+            return notReallyACacheButYeh.get(getCacheKey(gitRepoDetails));
+        }
+        return gitIssues;
+    }
+
+    private void addToCache(GitRepoDetails gitRepoDetails, List<GitIssue> gitIssues) {
+        String key = getCacheKey(gitRepoDetails);
+        ArrayList<GitIssue> orDefault = notReallyACacheButYeh.getOrDefault(key, new ArrayList<>());
+        orDefault.addAll(gitIssues);
+        notReallyACacheButYeh.put(key, orDefault);
+    }
+
+    private String getCacheKey(GitRepoDetails gitRepoDetails) {
+        return gitRepoDetails.getUserOrOrganisation() + gitRepoDetails.getRepositoryName();
     }
 }
